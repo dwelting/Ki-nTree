@@ -17,7 +17,7 @@ if platform.system() == 'Linux':
 # InvenTree
 from inventree.api import InvenTreeAPI
 from inventree.company import Company, ManufacturerPart, SupplierPart, SupplierPriceBreak
-from inventree.part import Part, PartCategory
+from inventree.part import Part, PartCategory, PartCategoryParameterTemplate
 from inventree.currency import CurrencyManager
 from inventree.stock import StockLocation
 from inventree.stock import StockItem
@@ -223,6 +223,41 @@ def get_stock_location_tree(id: int) -> dict:
 
 def create_stock(stock_data: dict) -> dict:
     return StockItem.create(inventree_api, stock_data)
+
+
+def fetch_parameter_template(name) -> int:
+    global inventree_api
+
+    templates = ParameterTemplate.list(inventree_api, name=name)
+    if not templates:
+        cprint(f'[TREE]\tError: Failed to fetch parameter "{name}"', silent=settings.SILENT)
+        return 0
+    return templates[0]
+
+
+def set_category_parameter(name, category, parameter) -> bool:
+    ''' Set InvenTree category parameter from parameter template '''
+    global inventree_api
+
+    target_template = fetch_parameter_template(parameter)
+
+    # Check if category parameter already exists
+    category_templates = PartCategoryParameterTemplate.list(inventree_api, category=category)
+    category_templates_list = list()
+    for item in category_templates:
+        category_templates_list.append(item.template_detail['name'])
+    if parameter not in category_templates_list:
+        try:
+            category_parameter = PartCategoryParameterTemplate.create(inventree_api, {
+                'category': category,
+                'template': target_template.pk,
+            })
+            if category_parameter:
+                return True
+        except:
+            cprint(f'[TREE]\tError: Failed to add parameter "{parameter}" to category "{category}".', silent=settings.SILENT)
+
+    return False
 
 
 def get_category_parameters(category_id: int) -> list:
